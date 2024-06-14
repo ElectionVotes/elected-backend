@@ -1,6 +1,15 @@
 const Vote = require("../models/Vote");
 const Role = require("../models/Role");
+const User = require("../models/User");
+const nodemailer = require("nodemailer");
+const config = require('../middleware/config');
+
 const mongoose = require("mongoose");
+
+const transporter = nodemailer.createTransport({
+  service: config.email.service,
+  auth: config.email.auth
+});
 
 exports.recordVote = async (req, res) => {
   const { userId, candidateRoleId } = req.body;
@@ -30,6 +39,25 @@ exports.recordVote = async (req, res) => {
     });
 
     await newVote.save();
+
+     // Fetch user details
+     const user = await User.findById(userId);
+
+     // Send email confirmation
+     const mailOptions = {
+       from: config.email.auth.user,
+       to: user.email,
+       subject: 'Vote Confirmation',
+       text: `Dear ${user.firstName},\n\nThank you for casting your vote.\n\nBest regards,\nElection Committee`
+     };
+ 
+     transporter.sendMail(mailOptions, (error, info) => {
+       if (error) {
+         console.log('Error sending email:', error);
+       } else {
+         console.log('Email sent:', info.response);
+       }
+     });
 
     res.status(201).json(newVote);
   } catch (error) {
