@@ -84,7 +84,7 @@ function sendEmail(to, token) {
     subject: 'Update your password',
     text: `Bonjour,
 Please click the link below to update your password:
-http://your-app-url/update-profile/${token}
+http://elected.live/update-profile/${token}
 This link will expire in 1 hour.
 Cordialement,
 Votre équipe de vote.`
