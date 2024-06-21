@@ -3,7 +3,7 @@ const router = express.Router();
 const userController = require('../controllers/userController');
 const upload = require('../middleware/upload');
 const emailVerification = require('../middleware/emailVerification'); // Add this line
-
+const bcrypt = require('bcrypt');
 router.post('/import', upload.single('file'), userController.importUsersFromExcel);
 router.post('/', userController.createUser);
 router.put('/:id', userController.updateUser);
