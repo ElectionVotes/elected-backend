@@ -12,6 +12,7 @@ const userSchema = new Schema({
   roles: [{ type: Schema.Types.ObjectId, ref: 'Role' }],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
+  isTemporaryPassword: { type: Boolean, default: true },
   votingId: { type: String, required: false },
   votingPassword: { type: String, required: false },
   verificationCode: { type: String,required: false } 

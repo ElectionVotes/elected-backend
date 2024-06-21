@@ -28,13 +28,14 @@ router.post('/register', async (req, res) => {
   try {
     const { firstName, lastName, email, password } = req.body;
 
-    console.log('Register request body:', req.body); // Log request body
+    console.log('Register request body:', req.body);
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       console.log('User already exists:', email);
       return res.status(400).json({ msg: 'User already exists' });
     }
+
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
     console.log('Password hashed');
@@ -45,7 +46,8 @@ router.post('/register', async (req, res) => {
       lastName,
       email,
       password: hashedPassword,
-      roles: [], // Assign the role to the user
+      isTemporaryPassword: true, // Set the flag
+      roles: [],
     });
 
     console.log('New user to be saved:', newUser);
@@ -59,6 +61,7 @@ router.post('/register', async (req, res) => {
     res.status(500).json({ msg: 'Server error' });
   }
 });
+
 
 
 // Login a user
@@ -85,11 +88,16 @@ router.post('/login', async (req, res) => {
     const payload = { userId: user._id, isAdmin };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '3h' });
 
+    if (user.isTemporaryPassword) {
+      return res.status(200).json({ refresh_token: token, temporary: true });
+    }
+
     res.status(200).json({ refresh_token: token });
   } catch (err) {
     console.error('Error logging in user:', err);
     res.status(500).json({ msg: 'Server error' });
   }
 });
+
 
 module.exports = router;

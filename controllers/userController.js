@@ -3,6 +3,15 @@ const User = require('../models/User');
 const Role = require('../models/Role');
 const Election = require('../models/Election')
 const xlsx = require('xlsx');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+let transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'eelected41@gmail.com',
+    pass: 'qljdwodhgxiiraoa'
+  }
+});
 
 exports.importUsersFromExcel = async (req, res) => {
   try {
@@ -23,19 +32,25 @@ exports.importUsersFromExcel = async (req, res) => {
     }
 
     for (const row of rows) {
-      const { firstName, lastName, email, password, dateOfBirth, phoneNumber, role } = row;
+      const { firstName, lastName, email, dateOfBirth, phoneNumber, role } = row;
 
       let user = await User.findOne({ email });
       if (!user) {
+        const randomPassword = generateRandomString(12); // Generate a random password
+        const hashedPassword = await bcrypt.hash(randomPassword, 10); // Hash the password
+
         user = new User({
           firstName,
           lastName,
           email,
-          password, // Assume the password is already hashed in the Excel file
+          password: hashedPassword, // Save the hashed password
           dateOfBirth,
           phoneNumber,
         });
         await user.save();
+
+        // Send email to the user with the generated password
+        sendEmail(email, randomPassword);
       }
 
       const userRole = new Role({
@@ -55,6 +70,34 @@ exports.importUsersFromExcel = async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+// Function to generate a random string
+function generateRandomString(length) {
+  return crypto.randomBytes(length).toString('hex').slice(0, length);
+}
+
+// Function to send emails
+function sendEmail(to, password) {
+  const mailOptions = {
+    from: 'Système de vote <noreply@votre-serveur-de-vote.com>',
+    to: to,
+    subject: 'Votre mot de passe provisoire',
+    text: `Bonjour,
+Voici votre mot de passe provisoire : ${password}
+Veuillez le changer lors de votre première connexion.
+
+Cordialement,
+Votre équipe de vote.`
+  };
+
+  transporter.sendMail(mailOptions, function (error, info) {
+    if (error) {
+      console.log(error);
+    } else {
+      console.log('Email envoyé: ' + info.response);
+    }
+  });
+}
 exports.createUser = async (req, res) => {
   try {
     const {
