@@ -32,27 +32,31 @@ exports.importUsersFromExcel = async (req, res) => {
       return res.status(404).json({ message: 'Election not found' });
     }
 
-    const staticPassword = 'StaticPassword123'; // Static password
-    const hashedPassword = await bcrypt.hash(staticPassword, 10); // Hash the static password
+    const staticPassword = 'StaticPassword123';
+    const hashedPassword = await bcrypt.hash(staticPassword, 10);
 
     for (const row of rows) {
       const { firstName, lastName, email, dateOfBirth, phoneNumber, role } = row;
 
       let user = await User.findOne({ email });
       if (!user) {
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenExpires = Date.now() + 3600000; // Token expires in 1 hour
+
         user = new User({
           firstName,
           lastName,
           email,
-          password: hashedPassword, // Save the hashed static password
+          password: hashedPassword,
           dateOfBirth,
           phoneNumber,
-          temporaryPassword: true // Set temporary password flag
+          temporaryPassword: true,
+          resetToken,
+          resetTokenExpires
         });
         await user.save();
 
-        // Send email to the user with the link to update their password
-        sendEmail(email, user._id);
+        sendEmail(email, resetToken);
       }
 
       const userRole = new Role({
@@ -73,14 +77,15 @@ exports.importUsersFromExcel = async (req, res) => {
   }
 };
 
-function sendEmail(to, userId) {
+function sendEmail(to, token) {
   const mailOptions = {
     from: 'Système de vote <noreply@votre-serveur-de-vote.com>',
     to: to,
     subject: 'Update your password',
     text: `Bonjour,
 Please click the link below to update your password:
-http://elected.live/update-profile/${userId}
+http://your-app-url/update-profile/${token}
+This link will expire in 1 hour.
 Cordialement,
 Votre équipe de vote.`
 };

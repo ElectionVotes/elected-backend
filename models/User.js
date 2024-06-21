@@ -15,7 +15,9 @@ const userSchema = new Schema({
   isTemporaryPassword: { type: Boolean, default: true },
   votingId: { type: String, required: false },
   votingPassword: { type: String, required: false },
-  verificationCode: { type: String,required: false } 
+  verificationCode: { type: String,required: false },
+  resetToken: { type: String, default: null },
+  resetTokenExpires: { type: Date, default: null }
 });
 
 module.exports = mongoose.models.User || mongoose.model('User', userSchema);
