@@ -5,6 +5,7 @@ const Election = require('../models/Election')
 const xlsx = require('xlsx');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+
 let transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -31,26 +32,27 @@ exports.importUsersFromExcel = async (req, res) => {
       return res.status(404).json({ message: 'Election not found' });
     }
 
+    const staticPassword = 'StaticPassword123'; // Static password
+    const hashedPassword = await bcrypt.hash(staticPassword, 10); // Hash the static password
+
     for (const row of rows) {
       const { firstName, lastName, email, dateOfBirth, phoneNumber, role } = row;
 
       let user = await User.findOne({ email });
       if (!user) {
-        const randomPassword = generateRandomString(12); // Generate a random password
-        const hashedPassword = await bcrypt.hash(randomPassword, 10); // Hash the password
-
         user = new User({
           firstName,
           lastName,
           email,
-          password: hashedPassword, // Save the hashed password
+          password: hashedPassword, // Save the hashed static password
           dateOfBirth,
           phoneNumber,
+          temporaryPassword: true // Set temporary password flag
         });
         await user.save();
 
-        // Send email to the user with the generated password
-        sendEmail(email, randomPassword);
+        // Send email to the user with the link to update their password
+        sendEmail(email, user._id);
       }
 
       const userRole = new Role({
@@ -71,32 +73,26 @@ exports.importUsersFromExcel = async (req, res) => {
   }
 };
 
-// Function to generate a random string
-function generateRandomString(length) {
-  return crypto.randomBytes(length).toString('hex').slice(0, length);
-}
-
-// Function to send emails
-function sendEmail(to, password) {
+function sendEmail(to, userId) {
   const mailOptions = {
     from: 'Système de vote <noreply@votre-serveur-de-vote.com>',
     to: to,
-    subject: 'Votre mot de passe provisoire',
+    subject: 'Update your password',
     text: `Bonjour,
-Voici votre mot de passe provisoire : ${password}
-Veuillez le changer lors de votre première connexion.
-
+Please click the link below to update your password:
+http://elected.live/update-profile/${userId}
 Cordialement,
 Votre équipe de vote.`
-  };
+};
 
-  transporter.sendMail(mailOptions, function (error, info) {
-    if (error) {
-      console.log(error);
-    } else {
-      console.log('Email envoyé: ' + info.response);
-    }
-  });
+
+ transporter.sendMail(mailOptions, function (error, info) {
+   if (error) {
+     console.log(error);
+   } else {
+     console.log('Email envoyé: ' + info.response);
+   }
+ });
 }
 exports.createUser = async (req, res) => {
   try {
