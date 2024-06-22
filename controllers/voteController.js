@@ -33,55 +33,33 @@ const decrypt = (encryptedData) => {
 };
 
 exports.recordVote = async (req, res) => {
-  const { userId, candidateRoleId } = req.body;
-
   try {
-    const candidateRole = await Role.findById(candidateRoleId).populate('electionId');
-    if (!candidateRole || candidateRole.role !== 'candidat') {
-      return res.status(403).json({ message: "Invalid candidate role" });
+    const { userId, roleId } = req.body;
+
+    if (!userId || !roleId) {
+      return res.status(400).json({ message: 'UserId and RoleId are required' });
     }
 
-    const electionId = candidateRole.electionId;
-
-    const candidateRoles = await Role.find({ electionId, role: 'candidat' }).select('_id');
-    const roleIds = candidateRoles.map(role => role._id);
-    const existingVote = await Vote.findOne({ userId, roleId: { $in: roleIds } });
-
+    const existingVote = await Vote.findOne({ userId });
     if (existingVote) {
-      return res.status(400).json({ message: "User has already voted in this election" });
+      return res.status(400).json({ message: 'User has already voted' });
     }
 
-    const encryptedRoleId = encrypt(candidateRoleId.toString());
+    const encryptedRoleId = encrypt(roleId); // Use your encryption function
 
-    const newVote = new Vote({
+    const vote = new Vote({
       userId,
       roleId: encryptedRoleId,
     });
 
-    await newVote.save();
-
-    const user = await User.findById(userId);
-
-    const mailOptions = {
-      from: config.email.auth.user,
-      to: user.email,
-      subject: 'Vote Confirmation',
-      text: `Dear ${user.firstName},\n\nThank you for casting your vote.\n\nBest regards,\nElection Committee`
-    };
-
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.log('Error sending email:', error);
-      } else {
-        console.log('Email sent:', info.response);
-      }
-    });
-
-    res.status(201).json(newVote);
+    await vote.save();
+    res.status(201).json({ message: 'Vote cast successfully' });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error('Error casting vote:', error.message); // Log the specific error message
+    res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
+
 
 exports.getVotesCountPerCandidate = async (req, res) => {
   const { electionId } = req.params;
