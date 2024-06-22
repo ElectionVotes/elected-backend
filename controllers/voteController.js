@@ -36,6 +36,9 @@ exports.recordVote = async (req, res) => {
     const encryptedRoleId = encrypt(candidateRoleId.toString());
     const encryptedUserId = encrypt(userId.toString());
 
+    console.log(`Encrypted userId: ${encryptedUserId}`);
+    console.log(`Encrypted roleId: ${encryptedRoleId}`);
+
     const newVote = new Vote({
       userId: encryptedUserId,
       roleId: encryptedRoleId,
@@ -65,6 +68,7 @@ exports.recordVote = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+
 
 exports.getVotesCountPerCandidate = async (req, res) => {
   const { electionId } = req.params;
