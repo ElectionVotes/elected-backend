@@ -1,10 +1,10 @@
-const Vote = require("../models/Vote");
-const Role = require("../models/Role");
-const User = require("../models/User");
-const nodemailer = require("nodemailer");
+const { encryptVote } = require('../middleware/encryption');
+const { decryptVote } = require('../middleware/encryption');
+const Vote = require('../models/Vote');
+const Role = require('../models/Role');
+const User = require('../models/User');
+const nodemailer = require('nodemailer');
 const config = require('../middleware/config');
-
-const mongoose = require("mongoose");
 
 const transporter = nodemailer.createTransport({
   service: config.email.service,
@@ -15,7 +15,6 @@ exports.recordVote = async (req, res) => {
   const { userId, candidateRoleId } = req.body;
 
   try {
-    // Fetch the role to get the election ID
     const candidateRole = await Role.findById(candidateRoleId).populate('electionId');
     if (!candidateRole || candidateRole.role !== 'candidat') {
       return res.status(403).json({ message: "Invalid candidate role" });
@@ -23,7 +22,6 @@ exports.recordVote = async (req, res) => {
 
     const electionId = candidateRole.electionId;
 
-    // Check if the user has already voted in this election
     const candidateRoles = await Role.find({ electionId, role: 'candidat' }).select('_id');
     const roleIds = candidateRoles.map(role => role._id);
     const existingVote = await Vote.findOne({ userId, roleId: { $in: roleIds } });
@@ -32,38 +30,38 @@ exports.recordVote = async (req, res) => {
       return res.status(400).json({ message: "User has already voted in this election" });
     }
 
-    // Create a new vote
+    const encryptedRoleId = encryptVote(candidateRoleId.toString());  // Encrypt the roleId
+
     const newVote = new Vote({
       userId,
-      roleId: candidateRoleId,
+      roleId: encryptedRoleId,
     });
 
     await newVote.save();
 
-     // Fetch user details
-     const user = await User.findById(userId);
+    const user = await User.findById(userId);
 
-     // Send email confirmation
-     const mailOptions = {
-       from: config.email.auth.user,
-       to: user.email,
-       subject: 'Vote Confirmation',
-       text: `Dear ${user.firstName},\n\nThank you for casting your vote.\n\nBest regards,\nElection Committee`
-     };
- 
-     transporter.sendMail(mailOptions, (error, info) => {
-       if (error) {
-         console.log('Error sending email:', error);
-       } else {
-         console.log('Email sent:', info.response);
-       }
-     });
+    const mailOptions = {
+      from: config.email.auth.user,
+      to: user.email,
+      subject: 'Vote Confirmation',
+      text: `Dear ${user.firstName},\n\nThank you for casting your vote.\n\nBest regards,\nElection Committee`
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.log('Error sending email:', error);
+      } else {
+        console.log('Email sent:', info.response);
+      }
+    });
 
     res.status(201).json(newVote);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 };
+
 
 exports.getVotesCountPerCandidate = async (req, res) => {
   const { electionId } = req.params;
@@ -154,18 +152,30 @@ exports.getUserVotes = async (req, res) => {
       populate: [
         {
           path: 'userId',
-          model: 'User', // Explicitly specify the model name
+          model: 'User',
           select: 'firstName lastName'
         },
         {
           path: 'electionId',
-          model: 'Election', // Explicitly specify the model name
+          model: 'Election',
           select: 'Title'
         }
       ]
     });
 
-    res.status(200).json(votes);
+    const decryptedVotes = await Promise.all(votes.map(async vote => {
+      const decryptedRoleId = decryptVote(vote.roleId);  // Decrypt the roleId
+      const role = await Role.findById(decryptedRoleId).populate('userId electionId');
+
+      return {
+        _id: vote._id,
+        userId: vote.userId,
+        roleId: role,
+        createdAt: vote.createdAt
+      };
+    }));
+
+    res.status(200).json(decryptedVotes);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
