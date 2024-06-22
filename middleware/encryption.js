@@ -2,14 +2,22 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-// Load public and private keys
+// Load public and private keys with logging
 let publicKey, privateKey;
 try {
   publicKey = fs.readFileSync(path.resolve(__dirname, '../keys/public.pem'), 'utf8');
-  privateKey = fs.readFileSync(path.resolve(__dirname, '../keys/private.pem'), 'utf8');
+  console.log('Public key loaded successfully');
 } catch (err) {
-  console.error('Error loading keys:', err);
-  process.exit(1); // Exit the process if keys cannot be loaded
+  console.error('Error loading public key:', err);
+  process.exit(1);
+}
+
+try {
+  privateKey = fs.readFileSync(path.resolve(__dirname, '../keys/private.pem'), 'utf8');
+  console.log('Private key loaded successfully');
+} catch (err) {
+  console.error('Error loading private key:', err);
+  process.exit(1);
 }
 
 // Function to encrypt data
@@ -20,7 +28,7 @@ const encrypt = (data) => {
     return encrypted.toString('base64');
   } catch (err) {
     console.error('Error encrypting data:', err);
-    throw err; // Rethrow the error to be handled by the calling function
+    throw err;
   }
 };
 
@@ -32,7 +40,7 @@ const decrypt = (encryptedData) => {
     return decrypted.toString('utf8');
   } catch (err) {
     console.error('Error decrypting data:', err);
-    throw err; // Rethrow the error to be handled by the calling function
+    throw err;
   }
 };
 
