@@ -152,12 +152,16 @@ exports.hasUserVoted = async (req, res) => {
 
 exports.getUserVotes = async (req, res) => {
   const { userId } = req.params;
-  
+
   console.log(`Received request for userId: ${userId}`);
   
   try {
     const encryptedUserId = encrypt(userId.toString());
     console.log(`Encrypted userId: ${encryptedUserId}`);
+
+    // Fetch all votes for debugging purposes
+    const allVotes = await Vote.find({});
+    console.log(`All votes in the database: ${JSON.stringify(allVotes, null, 2)}`);
 
     const votes = await Vote.find({ userId: encryptedUserId }).populate({
       path: 'roleId',
@@ -175,11 +179,13 @@ exports.getUserVotes = async (req, res) => {
       ]
     });
 
+    console.log(`Fetched votes for encryptedUserId: ${JSON.stringify(votes, null, 2)}`);
+
     const decryptedVotes = votes.map(vote => ({
       ...vote.toObject(),
       roleId: decrypt(vote.roleId)
     }));
-    
+
     console.log(`Decrypted votes: ${JSON.stringify(decryptedVotes, null, 2)}`);
     
     res.status(200).json(decryptedVotes);
@@ -188,4 +194,3 @@ exports.getUserVotes = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
