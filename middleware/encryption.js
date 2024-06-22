@@ -1,28 +1,19 @@
 const crypto = require('crypto');
-const { publicKey, privateKey } = require('../middleware/keyLoader');
+const { publicKey, privateKey } = require('./keyLoader');
 
-// Function to encrypt data
-const encrypt = (data) => {
-  try {
-    const buffer = Buffer.from(data, 'utf8');
-    const encrypted = crypto.publicEncrypt(publicKey, buffer);
-    return encrypted.toString('base64');
-  } catch (err) {
-    console.error('Error encrypting data:', err);
-    throw err;
-  }
+const encryptVote = (data) => {
+  const buffer = Buffer.from(data, 'utf8');
+  const encrypted = crypto.publicEncrypt(publicKey, buffer);
+  return encrypted.toString('base64');
 };
 
-// Function to decrypt data
-const decrypt = (encryptedData) => {
-  try {
-    const buffer = Buffer.from(encryptedData, 'base64');
-    const decrypted = crypto.privateDecrypt(privateKey, buffer);
-    return decrypted.toString('utf8');
-  } catch (err) {
-    console.error('Error decrypting data:', err);
-    throw err;
-  }
+const decryptVote = (data) => {
+  const buffer = Buffer.from(data, 'base64');
+  const decrypted = crypto.privateDecrypt(privateKey, buffer);
+  return decrypted.toString('utf8');
 };
 
-module.exports = { encrypt, decrypt };
+module.exports = {
+  encryptVote,
+  decryptVote,
+};
