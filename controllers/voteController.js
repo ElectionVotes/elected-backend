@@ -1,5 +1,5 @@
 const express = require('express');
-const router = express.Router();
+
 const mongoose = require('mongoose');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -11,8 +11,8 @@ const nodemailer = require('nodemailer');
 const config = require('../middleware/config');
 
 // Load public and private keys
-const publicKey = fs.readFileSync(path.resolve(__dirname, '../keys/public_key.pem'), 'utf8');
-const privateKey = fs.readFileSync(path.resolve(__dirname, '../keys/private_key.pem'), 'utf8');
+const publicKey = fs.readFileSync(path.resolve(__dirname, '../keys/public.pem'), 'utf8');
+const privateKey = fs.readFileSync(path.resolve(__dirname, '../keys/private.pem'), 'utf8');
 
 // Configure nodemailer
 const transporter = nodemailer.createTransport({
@@ -20,12 +20,14 @@ const transporter = nodemailer.createTransport({
   auth: config.email.auth
 });
 
+// Function to encrypt data
 const encrypt = (data) => {
   const buffer = Buffer.from(data, 'utf8');
   const encrypted = crypto.publicEncrypt(publicKey, buffer);
   return encrypted.toString('base64');
 };
 
+// Function to decrypt data
 const decrypt = (encryptedData) => {
   const buffer = Buffer.from(encryptedData, 'base64');
   const decrypted = crypto.privateDecrypt(privateKey, buffer);
@@ -33,33 +35,55 @@ const decrypt = (encryptedData) => {
 };
 
 exports.recordVote = async (req, res) => {
+  const { userId, candidateRoleId } = req.body;
+
   try {
-    const { userId, roleId } = req.body;
-
-    if (!userId || !roleId) {
-      return res.status(400).json({ message: 'UserId and RoleId are required' });
+    const candidateRole = await Role.findById(candidateRoleId).populate('electionId');
+    if (!candidateRole || candidateRole.role !== 'candidat') {
+      return res.status(403).json({ message: "Invalid candidate role" });
     }
 
-    const existingVote = await Vote.findOne({ userId });
+    const electionId = candidateRole.electionId;
+
+    const candidateRoles = await Role.find({ electionId, role: 'candidat' }).select('_id');
+    const roleIds = candidateRoles.map(role => role._id);
+    const existingVote = await Vote.findOne({ userId, roleId: { $in: roleIds } });
+
     if (existingVote) {
-      return res.status(400).json({ message: 'User has already voted' });
+      return res.status(400).json({ message: "User has already voted in this election" });
     }
 
-    const encryptedRoleId = encrypt(roleId); // Use your encryption function
+    const encryptedRoleId = encrypt(candidateRoleId.toString());
 
-    const vote = new Vote({
+    const newVote = new Vote({
       userId,
       roleId: encryptedRoleId,
     });
 
-    await vote.save();
-    res.status(201).json({ message: 'Vote cast successfully' });
+    await newVote.save();
+
+    const user = await User.findById(userId);
+
+    const mailOptions = {
+      from: config.email.auth.user,
+      to: user.email,
+      subject: 'Vote Confirmation',
+      text: `Dear ${user.firstName},\n\nThank you for casting your vote.\n\nBest regards,\nElection Committee`
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.log('Error sending email:', error);
+      } else {
+        console.log('Email sent:', info.response);
+      }
+    });
+
+    res.status(201).json(newVote);
   } catch (error) {
-    console.error('Error casting vote:', error.message); // Log the specific error message
-    res.status(500).json({ message: 'Internal server error', error: error.message });
+    res.status(400).json({ message: error.message });
   }
 };
-
 
 exports.getVotesCountPerCandidate = async (req, res) => {
   const { electionId } = req.params;
@@ -72,13 +96,20 @@ exports.getVotesCountPerCandidate = async (req, res) => {
     const roles = await Role.find({ electionId, role: "candidat" }).select('_id userId');
     const roleIds = roles.map(role => role._id);
 
-    const votesCount = await Vote.aggregate([
-      { $match: { roleId: { $in: roleIds } } },
-      { $group: { _id: "$roleId", totalVotes: { $sum: 1 } } },
-    ]);
+    const votes = await Vote.find({ roleId: { $in: roleIds } });
+
+    const decryptedVotes = votes.map(vote => ({
+      ...vote.toObject(),
+      roleId: decrypt(vote.roleId)
+    }));
+
+    const voteCounts = decryptedVotes.reduce((acc, vote) => {
+      acc[vote.roleId] = (acc[vote.roleId] || 0) + 1;
+      return acc;
+    }, {});
 
     const candidatesWithVotes = await Role.aggregate([
-      { $match: { _id: { $in: votesCount.map((vote) => vote._id) } } },
+      { $match: { _id: { $in: Object.keys(voteCounts).map(id => mongoose.Types.ObjectId(id)) } } },
       {
         $lookup: {
           from: "users",
@@ -97,19 +128,12 @@ exports.getVotesCountPerCandidate = async (req, res) => {
               "$candidateInfo.lastName",
             ],
           },
-        },
-      },
-      {
-        $lookup: {
-          from: "votes",
-          localField: "_id",
-          foreignField: "roleId",
-          as: "voteInfo",
-        },
-      },
-      {
-        $addFields: {
-          totalVotes: { $size: "$voteInfo" },
+          totalVotes: {
+            $let: {
+              vars: { roleId: { $toString: "$_id" } },
+              in: { $cond: { if: { $in: ["$$roleId", Object.keys(voteCounts)] }, then: voteCounts["$$roleId"], else: 0 } }
+            }
+          }
         },
       },
       { $project: { _id: 1, candidateName: 1, totalVotes: 1 } },
@@ -170,3 +194,4 @@ exports.getUserVotes = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
