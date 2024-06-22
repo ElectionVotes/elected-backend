@@ -2,7 +2,6 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const { publicKey, privateKey } = require('./middleware/keyLoader'); 
 
 dotenv.config();
 const DB = process.env.MONGO_URL;
@@ -48,7 +47,6 @@ mongoose.connect(DB, {
 })
 .catch((err) => {
   console.log('MongoDB connection failed', err);
-  process.exit(1); // Exit if MongoDB connection fails
 });
 
 // Start the server
