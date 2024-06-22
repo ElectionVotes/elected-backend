@@ -159,7 +159,6 @@ exports.getUserVotes = async (req, res) => {
     const encryptedUserId = encrypt(userId.toString());
     console.log(`Encrypted userId: ${encryptedUserId}`);
 
-    // Fetch all votes for debugging purposes
     const allVotes = await Vote.find({});
     console.log(`All votes in the database: ${JSON.stringify(allVotes, null, 2)}`);
 
