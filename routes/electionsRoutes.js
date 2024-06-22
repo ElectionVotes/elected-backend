@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const electionController = require("../controllers/electionController");
-// WAITING FOR JWT AUTH FOR HANDLING AUTHORISATION FOR ADDING A NEW ELECTION BY ADMIN ONLY
 
 router.post("/", electionController.createElection);
 router.put("/:id", electionController.updateElection);

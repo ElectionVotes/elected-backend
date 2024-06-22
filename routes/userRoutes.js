@@ -5,6 +5,20 @@ const upload = require('../middleware/upload');
 const emailVerification = require('../middleware/emailVerification'); // Add this line
 const bcrypt = require('bcrypt');
 const User = require('../models/User');
+const Role = require("../models/Role");
+const Election = require("../models/Election");
+router.get("/user-elections/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const roles = await Role.find({ userId }).populate('electionId');
+
+    const elections = roles.map(role => role.electionId);
+
+    res.status(200).json(elections);
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
 
 router.post('/import', upload.single('file'), userController.importUsersFromExcel);
 router.post('/', userController.createUser);
