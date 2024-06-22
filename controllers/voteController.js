@@ -152,9 +152,12 @@ exports.hasUserVoted = async (req, res) => {
 
 exports.getUserVotes = async (req, res) => {
   const { userId } = req.params;
-
+  
+  console.log(`Received request for userId: ${userId}`);
+  
   try {
     const encryptedUserId = encrypt(userId.toString());
+    console.log(`Encrypted userId: ${encryptedUserId}`);
 
     const votes = await Vote.find({ userId: encryptedUserId }).populate({
       path: 'roleId',
@@ -176,9 +179,13 @@ exports.getUserVotes = async (req, res) => {
       ...vote.toObject(),
       roleId: decrypt(vote.roleId)
     }));
-
+    
+    console.log(`Decrypted votes: ${JSON.stringify(decryptedVotes, null, 2)}`);
+    
     res.status(200).json(decryptedVotes);
   } catch (error) {
+    console.error('Error in getUserVotes:', error);
     res.status(500).json({ message: error.message });
   }
 };
+
