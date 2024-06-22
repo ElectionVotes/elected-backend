@@ -72,51 +72,30 @@ exports.getVotesCountPerCandidate = async (req, res) => {
     }
 
     const roles = await Role.find({ electionId, role: "candidat" }).select('_id userId');
+    const roleIds = roles.map(role => role._id.toString());
 
-    const roleIds = roles.map(role => role._id);
+    const votes = await Vote.find();
+    const decryptedVotes = votes.map(vote => {
+      return {
+        ...vote._doc,
+        decryptedRoleId: decryptVote(vote.roleId)
+      };
+    });
 
-    const votesCount = await Vote.aggregate([
-      { $match: { roleId: { $in: roleIds } } },
-      { $group: { _id: "$roleId", totalVotes: { $sum: 1 } } },
-    ]);
+    const filteredVotes = decryptedVotes.filter(vote => roleIds.includes(vote.decryptedRoleId));
+    const votesCount = filteredVotes.reduce((acc, vote) => {
+      acc[vote.decryptedRoleId] = (acc[vote.decryptedRoleId] || 0) + 1;
+      return acc;
+    }, {});
 
-    const candidatesWithVotes = await Role.aggregate([
-      { $match: { _id: { $in: votesCount.map((vote) => vote._id) } } },
-      {
-        $lookup: {
-          from: "users",
-          localField: "userId",
-          foreignField: "_id",
-          as: "candidateInfo",
-        },
-      },
-      { $unwind: "$candidateInfo" },
-      {
-        $addFields: {
-          candidateName: {
-            $concat: [
-              "$candidateInfo.firstName",
-              " ",
-              "$candidateInfo.lastName",
-            ],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "votes",
-          localField: "_id",
-          foreignField: "roleId",
-          as: "voteInfo",
-        },
-      },
-      {
-        $addFields: {
-          totalVotes: { $size: "$voteInfo" },
-        },
-      },
-      { $project: { _id: 1, candidateName: 1, totalVotes: 1 } },
-    ]);
+    const candidatesWithVotes = await Promise.all(Object.keys(votesCount).map(async roleId => {
+      const role = await Role.findById(roleId).populate('userId');
+      return {
+        _id: roleId,
+        candidateName: `${role.userId.firstName} ${role.userId.lastName}`,
+        totalVotes: votesCount[roleId]
+      };
+    }));
 
     res.status(200).json(candidatesWithVotes);
   } catch (error) {
@@ -129,15 +108,14 @@ exports.hasUserVoted = async (req, res) => {
 
   try {
     const candidateRoles = await Role.find({ electionId, role: 'candidat' }).select('_id');
-    const roleIds = candidateRoles.map(role => role._id);
+    const roleIds = candidateRoles.map(role => role._id.toString());
 
-    const vote = await Vote.findOne({ userId, roleId: { $in: roleIds } });
+    const votes = await Vote.find({ userId });
+    const userVotes = votes.map(vote => decryptVote(vote.roleId));
 
-    if (vote) {
-      return res.status(200).json({ hasVoted: true });
-    } else {
-      return res.status(200).json({ hasVoted: false });
-    }
+    const hasVoted = userVotes.some(roleId => roleIds.includes(roleId));
+
+    res.status(200).json({ hasVoted });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
