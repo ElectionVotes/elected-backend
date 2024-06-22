@@ -2,6 +2,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const fs = require('fs');
+const path = require('path');
 
 dotenv.config();
 const DB = process.env.MONGO_URL;
@@ -37,6 +39,23 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/votes', votesRoutes);
 
+// Verify key files
+try {
+  const publicKey = fs.readFileSync(path.resolve(__dirname, '../keys/public.pem'), 'utf8');
+  console.log('Public key loaded successfully');
+} catch (err) {
+  console.error('Error loading public key:', err);
+  process.exit(1);
+}
+
+try {
+  const privateKey = fs.readFileSync(path.resolve(__dirname, '../keys/private.pem'), 'utf8');
+  console.log('Private key loaded successfully');
+} catch (err) {
+  console.error('Error loading private key:', err);
+  process.exit(1);
+}
+
 // MongoDB connection
 mongoose.connect(DB, {
   useNewUrlParser: true,
@@ -47,6 +66,7 @@ mongoose.connect(DB, {
 })
 .catch((err) => {
   console.log('MongoDB connection failed', err);
+  process.exit(1); // Exit if MongoDB connection fails
 });
 
 // Start the server
