@@ -41,7 +41,7 @@ app.use('/api/votes', votesRoutes);
 
 // Verify key files
 try {
-  const publicKey = fs.readFileSync(path.resolve(__dirname, '../keys/public.pem'), 'utf8');
+  const publicKey = fs.readFileSync(path.resolve(__dirname, '../keys/public_key.pem'), 'utf8');
   console.log('Public key loaded successfully');
 } catch (err) {
   console.error('Error loading public key:', err);
@@ -49,7 +49,7 @@ try {
 }
 
 try {
-  const privateKey = fs.readFileSync(path.resolve(__dirname, '../keys/private.pem'), 'utf8');
+  const privateKey = fs.readFileSync(path.resolve(__dirname, '../keys/private_key.pem'), 'utf8');
   console.log('Private key loaded successfully');
 } catch (err) {
   console.error('Error loading private key:', err);
