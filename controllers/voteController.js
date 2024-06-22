@@ -3,7 +3,7 @@ const Role = require("../models/Role");
 const User = require("../models/User");
 const nodemailer = require("nodemailer");
 const config = require('../middleware/config');
-
+const { encrypt, decrypt } = require('../middleware/encryption');
 const mongoose = require("mongoose");
 
 const transporter = nodemailer.createTransport({
@@ -15,7 +15,6 @@ exports.recordVote = async (req, res) => {
   const { userId, candidateRoleId } = req.body;
 
   try {
-    // Fetch the role to get the election ID
     const candidateRole = await Role.findById(candidateRoleId).populate('electionId');
     if (!candidateRole || candidateRole.role !== 'candidat') {
       return res.status(403).json({ message: "Invalid candidate role" });
@@ -23,47 +22,50 @@ exports.recordVote = async (req, res) => {
 
     const electionId = candidateRole.electionId;
 
-    // Check if the user has already voted in this election
     const candidateRoles = await Role.find({ electionId, role: 'candidat' }).select('_id');
     const roleIds = candidateRoles.map(role => role._id);
-    const existingVote = await Vote.findOne({ userId, roleId: { $in: roleIds } });
+    const existingVote = await Vote.findOne({
+      userId: encrypt(userId.toString()),
+      roleId: { $in: roleIds.map(id => encrypt(id.toString())) }
+    });
 
     if (existingVote) {
       return res.status(400).json({ message: "User has already voted in this election" });
     }
 
-    // Create a new vote
+    const encryptedRoleId = encrypt(candidateRoleId.toString());
+    const encryptedUserId = encrypt(userId.toString());
+
     const newVote = new Vote({
-      userId,
-      roleId: candidateRoleId,
+      userId: encryptedUserId,
+      roleId: encryptedRoleId,
     });
 
     await newVote.save();
 
-     // Fetch user details
-     const user = await User.findById(userId);
+    const user = await User.findById(userId);
 
-     // Send email confirmation
-     const mailOptions = {
-       from: config.email.auth.user,
-       to: user.email,
-       subject: 'Vote Confirmation',
-       text: `Dear ${user.firstName},\n\nThank you for casting your vote.\n\nBest regards,\nElection Committee`
-     };
- 
-     transporter.sendMail(mailOptions, (error, info) => {
-       if (error) {
-         console.log('Error sending email:', error);
-       } else {
-         console.log('Email sent:', info.response);
-       }
-     });
+    const mailOptions = {
+      from: config.email.auth.user,
+      to: user.email,
+      subject: 'Vote Confirmation',
+      text: `Dear ${user.firstName},\n\nThank you for casting your vote.\n\nBest regards,\nElection Committee`
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.log('Error sending email:', error);
+      } else {
+        console.log('Email sent:', info.response);
+      }
+    });
 
     res.status(201).json(newVote);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 };
+
 
 exports.getVotesCountPerCandidate = async (req, res) => {
   const { electionId } = req.params;
@@ -74,16 +76,22 @@ exports.getVotesCountPerCandidate = async (req, res) => {
     }
 
     const roles = await Role.find({ electionId, role: "candidat" }).select('_id userId');
-
     const roleIds = roles.map(role => role._id);
 
-    const votesCount = await Vote.aggregate([
-      { $match: { roleId: { $in: roleIds } } },
-      { $group: { _id: "$roleId", totalVotes: { $sum: 1 } } },
-    ]);
+    const votes = await Vote.find({ roleId: { $in: roleIds.map(id => encrypt(id.toString())) } });
+
+    const decryptedVotes = votes.map(vote => ({
+      ...vote.toObject(),
+      roleId: decrypt(vote.roleId)
+    }));
+
+    const voteCounts = decryptedVotes.reduce((acc, vote) => {
+      acc[vote.roleId] = (acc[vote.roleId] || 0) + 1;
+      return acc;
+    }, {});
 
     const candidatesWithVotes = await Role.aggregate([
-      { $match: { _id: { $in: votesCount.map((vote) => vote._id) } } },
+      { $match: { _id: { $in: Object.keys(voteCounts).map(id => mongoose.Types.ObjectId(id)) } } },
       {
         $lookup: {
           from: "users",
@@ -102,19 +110,12 @@ exports.getVotesCountPerCandidate = async (req, res) => {
               "$candidateInfo.lastName",
             ],
           },
-        },
-      },
-      {
-        $lookup: {
-          from: "votes",
-          localField: "_id",
-          foreignField: "roleId",
-          as: "voteInfo",
-        },
-      },
-      {
-        $addFields: {
-          totalVotes: { $size: "$voteInfo" },
+          totalVotes: {
+            $let: {
+              vars: { roleId: { $toString: "$_id" } },
+              in: { $cond: { if: { $in: ["$$roleId", Object.keys(voteCounts)] }, then: voteCounts["$$roleId"], else: 0 } }
+            }
+          }
         },
       },
       { $project: { _id: 1, candidateName: 1, totalVotes: 1 } },
@@ -126,6 +127,7 @@ exports.getVotesCountPerCandidate = async (req, res) => {
   }
 };
 
+
 exports.hasUserVoted = async (req, res) => {
   const { userId, electionId } = req.params;
 
@@ -133,7 +135,12 @@ exports.hasUserVoted = async (req, res) => {
     const candidateRoles = await Role.find({ electionId, role: 'candidat' }).select('_id');
     const roleIds = candidateRoles.map(role => role._id);
 
-    const vote = await Vote.findOne({ userId, roleId: { $in: roleIds } });
+    const encryptedUserId = encrypt(userId.toString());
+
+    const vote = await Vote.findOne({
+      userId: encryptedUserId,
+      roleId: { $in: roleIds.map(id => encrypt(id.toString())) }
+    });
 
     if (vote) {
       return res.status(200).json({ hasVoted: true });
@@ -145,27 +152,35 @@ exports.hasUserVoted = async (req, res) => {
   }
 };
 
+
 exports.getUserVotes = async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const votes = await Vote.find({ userId }).populate({
+    const encryptedUserId = encrypt(userId.toString());
+
+    const votes = await Vote.find({ userId: encryptedUserId }).populate({
       path: 'roleId',
       populate: [
         {
           path: 'userId',
-          model: 'User', // Explicitly specify the model name
+          model: 'User',
           select: 'firstName lastName'
         },
         {
           path: 'electionId',
-          model: 'Election', // Explicitly specify the model name
+          model: 'Election',
           select: 'Title'
         }
       ]
     });
 
-    res.status(200).json(votes);
+    const decryptedVotes = votes.map(vote => ({
+      ...vote.toObject(),
+      roleId: decrypt(vote.roleId)
+    }));
+
+    res.status(200).json(decryptedVotes);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
