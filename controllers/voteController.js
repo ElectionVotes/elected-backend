@@ -5,7 +5,7 @@ const Role = require('../models/Role');
 const User = require('../models/User');
 const nodemailer = require('nodemailer');
 const config = require('../middleware/config');
-
+const mongoose = require('mongoose');
 const transporter = nodemailer.createTransport({
   service: config.email.service,
   auth: config.email.auth
