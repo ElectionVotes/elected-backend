@@ -24,9 +24,15 @@ exports.recordVote = async (req, res) => {
 
     const candidateRoles = await Role.find({ electionId, role: 'candidat' }).select('_id');
     const roleIds = candidateRoles.map(role => role._id);
+
+    const encryptedUserId = encrypt(userId.toString());
+    const encryptedRoleIds = roleIds.map(id => encrypt(id.toString()));
+
+    console.log(`Checking vote status for encryptedUserId: ${encryptedUserId}`);
+
     const existingVote = await Vote.findOne({
-      userId: encrypt(userId.toString()),
-      roleId: { $in: roleIds.map(id => encrypt(id.toString())) }
+      userId: encryptedUserId,
+      roleId: { $in: encryptedRoleIds }
     });
 
     if (existingVote) {
@@ -34,10 +40,7 @@ exports.recordVote = async (req, res) => {
     }
 
     const encryptedRoleId = encrypt(candidateRoleId.toString());
-    const encryptedUserId = encrypt(userId.toString());
-
-    console.log(`Encrypted userId: ${encryptedUserId}`);
-    console.log(`Encrypted roleId: ${encryptedRoleId}`);
+    console.log(`Recording vote for encryptedUserId: ${encryptedUserId}, encryptedRoleId: ${encryptedRoleId}`);
 
     const newVote = new Vote({
       userId: encryptedUserId,
@@ -69,7 +72,6 @@ exports.recordVote = async (req, res) => {
   }
 };
 
-
 exports.getVotesCountPerCandidate = async (req, res) => {
   const { electionId } = req.params;
 
@@ -81,7 +83,11 @@ exports.getVotesCountPerCandidate = async (req, res) => {
     const roles = await Role.find({ electionId, role: "candidat" }).select('_id userId');
     const roleIds = roles.map(role => role._id);
 
-    const votes = await Vote.find({ roleId: { $in: roleIds.map(id => encrypt(id.toString())) } });
+    const encryptedRoleIds = roleIds.map(id => encrypt(id.toString()));
+
+    console.log(`Fetching votes for encryptedRoleIds: ${encryptedRoleIds}`);
+
+    const votes = await Vote.find({ roleId: { $in: encryptedRoleIds } });
 
     const decryptedVotes = votes.map(vote => ({
       ...vote.toObject(),
@@ -138,10 +144,13 @@ exports.hasUserVoted = async (req, res) => {
     const roleIds = candidateRoles.map(role => role._id);
 
     const encryptedUserId = encrypt(userId.toString());
+    const encryptedRoleIds = roleIds.map(id => encrypt(id.toString()));
+
+    console.log(`Checking if user has voted for encryptedUserId: ${encryptedUserId}`);
 
     const vote = await Vote.findOne({
       userId: encryptedUserId,
-      roleId: { $in: roleIds.map(id => encrypt(id.toString())) }
+      roleId: { $in: encryptedRoleIds }
     });
 
     if (vote) {
