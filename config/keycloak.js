@@ -1,7 +1,6 @@
+const KeycloakAdminClient = require('keycloak-nodejs-admin-client');
 
-const KcAdminClient = require('keycloak-admin');
-
-const kcAdminClient = new KcAdminClient({
+const kcAdminClient = new KeycloakAdminClient({
   baseUrl: 'http://localhost:8080/auth',
   realmName: 'Elected',
 });
