@@ -55,6 +55,7 @@ router.use('/email-verification', emailVerification);
 router.post('/key-register', async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
   try {
+    const kcAdminClient = await kcAdminClientPromise;
     if (!kcAdminClient || !kcAdminClient.users || !kcAdminClient.users.create) {
       console.error('kcAdminClient is not properly initialized');
       throw new Error('kcAdminClient is not properly initialized');
@@ -86,7 +87,6 @@ router.post('/key-register', async (req, res) => {
     res.status(500).json({ message: 'Error creating user', error });
   }
 });
-
 
 // Update User
 router.put('/key-update/:id', async (req, res) => {
