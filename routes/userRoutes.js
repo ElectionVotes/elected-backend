@@ -55,7 +55,7 @@ router.post('/key-register', async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
   try {
     const createdUser = await kcAdminClient.users.create({
-      realm: 'elected',
+      realm: 'Elected',
       username: email,
       email,
       firstName,
@@ -65,12 +65,13 @@ router.post('/key-register', async (req, res) => {
         {
           type: 'password',
           value: password,
-          temporary: true,
+          temporary: false,
         },
       ],
     });
     res.status(201).json(createdUser);
   } catch (error) {
+    console.error('Error creating user:', error);
     res.status(500).json({ message: 'Error creating user', error });
   }
 });
@@ -91,6 +92,7 @@ router.put('/key-update/:id', async (req, res) => {
     );
     res.status(200).json({ message: 'User updated successfully' });
   } catch (error) {
+    console.error('Error updating user:', error);
     res.status(500).json({ message: 'Error updating user', error });
   }
 });
@@ -99,8 +101,13 @@ router.put('/key-update/:id', async (req, res) => {
 router.post('/key-login', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const grant = await kcAdminClient.grantManager.obtainDirectly(email, password);
-    return res.status(200).json({ token: grant.access_token });
+    const grant = await kcAdminClient.auth({
+      username: email,
+      password: password,
+      grantType: 'password',
+      clientId: 'react-client',
+    });
+    res.status(200).json({ token: grant.access_token });
   } catch (error) {
     console.error('Error authenticating user:', error);
     res.status(500).json({ message: 'Authentication failed', error });

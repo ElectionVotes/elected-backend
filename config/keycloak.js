@@ -1,3 +1,4 @@
+
 const KcAdminClient = require('keycloak-admin');
 
 const kcAdminClient = new KcAdminClient({
@@ -6,11 +7,16 @@ const kcAdminClient = new KcAdminClient({
 });
 
 const initKeycloak = async () => {
-  await kcAdminClient.auth({
-    grantType: 'client_credentials',
-    clientId: 'react-client',
-    clientSecret: 'fKMsHPTfolY6FqVEGdhCfWi5qGsly9gh', // Replace YOUR_CLIENT_SECRET with the actual secret
-  });
+  try {
+    await kcAdminClient.auth({
+      grantType: 'client_credentials',
+      clientId: 'react-client',
+      clientSecret: 'fKMsHPTfolY6FqVEGdhCfWi5qGsly9gh',
+    });
+    console.log("Keycloak Admin Client initialized successfully");
+  } catch (error) {
+    console.error("Error initializing Keycloak Admin Client", error);
+  }
 };
 
 initKeycloak();
