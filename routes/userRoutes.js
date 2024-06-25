@@ -51,9 +51,17 @@ router.post('/update-profile/:token', async (req, res) => {
   }
 });
 router.use('/email-verification', emailVerification);
+
 router.post('/key-register', async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
   try {
+    if (!kcAdminClient || !kcAdminClient.users || !kcAdminClient.users.create) {
+      console.error('kcAdminClient is not properly initialized');
+      throw new Error('kcAdminClient is not properly initialized');
+    }
+
+    console.log('Attempting to create user:', { firstName, lastName, email });
+
     const createdUser = await kcAdminClient.users.create({
       realm: 'Elected',
       username: email,
@@ -65,16 +73,20 @@ router.post('/key-register', async (req, res) => {
         {
           type: 'password',
           value: password,
-          temporary: false,
+          temporary: true,
         },
       ],
     });
+
+    console.log('User created successfully:', createdUser);
+
     res.status(201).json(createdUser);
   } catch (error) {
     console.error('Error creating user:', error);
     res.status(500).json({ message: 'Error creating user', error });
   }
 });
+
 
 // Update User
 router.put('/key-update/:id', async (req, res) => {
