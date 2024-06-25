@@ -103,7 +103,7 @@ router.post('/key-login', async (req, res) => {
   try {
     const grant = await kcAdminClient.auth({
       username: email,
-      password: password,
+      password,
       grantType: 'password',
       clientId: 'react-client',
     });
