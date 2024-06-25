@@ -1,5 +1,5 @@
-# elected-backend/server/Dockerfile
-FROM node:14
+# elected-backend/Dockerfile
+FROM node:16
 
 WORKDIR /app
 
@@ -8,6 +8,10 @@ COPY package-lock.json ./
 RUN npm install
 
 COPY . ./
+
+# Rebuild native modules
+RUN npm rebuild bcrypt --build-from-source
+
 EXPOSE 5000
 
-CMD ["node", "src/index.js"]
+CMD ["node", "index.js"]
