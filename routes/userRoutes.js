@@ -7,7 +7,7 @@ const bcrypt = require('bcrypt');
 const User = require('../models/User');
 const Role = require("../models/Role");
 const Election = require("../models/Election");
-const kcAdminClient = require('../config/keycloak');
+const kcAdminClientPromise = require('../config/keycloak');
 
 router.get("/user-elections/:userId", async (req, res) => {
   try {
@@ -52,6 +52,7 @@ router.post('/update-profile/:token', async (req, res) => {
 });
 router.use('/email-verification', emailVerification);
 
+
 router.post('/key-register', async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
   try {
@@ -88,11 +89,11 @@ router.post('/key-register', async (req, res) => {
   }
 });
 
-// Update User
 router.put('/key-update/:id', async (req, res) => {
   const { id } = req.params;
   const { firstName, lastName, email } = req.body;
   try {
+    const kcAdminClient = await kcAdminClientPromise;
     await kcAdminClient.users.update(
       { id },
       {
@@ -113,6 +114,7 @@ router.put('/key-update/:id', async (req, res) => {
 router.post('/key-login', async (req, res) => {
   const { email, password } = req.body;
   try {
+    const kcAdminClient = await kcAdminClientPromise;
     const grant = await kcAdminClient.auth({
       username: email,
       password,
@@ -125,6 +127,5 @@ router.post('/key-login', async (req, res) => {
     res.status(500).json({ message: 'Authentication failed', error });
   }
 });
-
 
 module.exports = router;
