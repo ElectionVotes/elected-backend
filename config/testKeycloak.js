@@ -2,7 +2,7 @@
     const { default: KcAdminClient } = await import('@keycloak/keycloak-admin-client');
   
     const kcAdminClient = new KcAdminClient({
-      baseUrl: 'http://196.74.216.117:8080',
+      baseUrl: 'http://172.27.32.1:8080',
       realmName: 'Elected',
     });
   
