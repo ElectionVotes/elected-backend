@@ -99,10 +99,13 @@ router.put('/key-update/:id', async (req, res) => {
 router.post('/key-login', async (req, res) => {
   const { email, password } = req.body;
   try {
-    // Keycloak authentication logic here
+    const grant = await kcAdminClient.grantManager.obtainDirectly(email, password);
+    return res.status(200).json({ token: grant.access_token });
   } catch (error) {
-    res.status(500).json({ message: 'Error authenticating user', error });
+    console.error('Error authenticating user:', error);
+    res.status(500).json({ message: 'Authentication failed', error });
   }
 });
+
 
 module.exports = router;
