@@ -7,6 +7,8 @@ const bcrypt = require('bcrypt');
 const User = require('../models/User');
 const Role = require("../models/Role");
 const Election = require("../models/Election");
+const kcAdminClient = require('../config/keycloak');
+
 router.get("/user-elections/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -49,5 +51,58 @@ router.post('/update-profile/:token', async (req, res) => {
   }
 });
 router.use('/email-verification', emailVerification);
+router.post('/key-register', async (req, res) => {
+  const { firstName, lastName, email, password } = req.body;
+  try {
+    const createdUser = await kcAdminClient.users.create({
+      realm: 'elected',
+      username: email,
+      email,
+      firstName,
+      lastName,
+      enabled: true,
+      credentials: [
+        {
+          type: 'password',
+          value: password,
+          temporary: true,
+        },
+      ],
+    });
+    res.status(201).json(createdUser);
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating user', error });
+  }
+});
+
+// Update User
+router.put('/key-update/:id', async (req, res) => {
+  const { id } = req.params;
+  const { firstName, lastName, email } = req.body;
+  try {
+    await kcAdminClient.users.update(
+      { id },
+      {
+        firstName,
+        lastName,
+        email,
+        enabled: true,
+      }
+    );
+    res.status(200).json({ message: 'User updated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating user', error });
+  }
+});
+
+// Authenticate User
+router.post('/key-login', async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    // Keycloak authentication logic here
+  } catch (error) {
+    res.status(500).json({ message: 'Error authenticating user', error });
+  }
+});
 
 module.exports = router;
