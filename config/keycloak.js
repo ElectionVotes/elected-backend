@@ -7,10 +7,9 @@ const kcAdminClient = new KcAdminClient({
 
 const initKeycloak = async () => {
   await kcAdminClient.auth({
-    username: 'ynov',
-    password: 'ynov',
-    grantType: 'password',
+    grantType: 'client_credentials',
     clientId: 'react-client',
+    clientSecret: 'fKMsHPTfolY6FqVEGdhCfWi5qGsly9gh', // Replace YOUR_CLIENT_SECRET with the actual secret
   });
 };
 
