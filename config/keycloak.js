@@ -1,4 +1,4 @@
-import KcAdminClient from '@keycloak/keycloak-admin-client';
+const KcAdminClient = require('@keycloak/keycloak-admin-client');
 
 const kcAdminClient = new KcAdminClient({
   baseUrl: 'https://81f4-196-74-216-117.ngrok-free.app', // Keycloak server URL
