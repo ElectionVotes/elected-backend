@@ -1,11 +1,11 @@
-const KcAdminClient = require('@keycloak/keycloak-admin-client');
-
-const kcAdminClient = new KcAdminClient({
-  baseUrl: 'https://81f4-196-74-216-117.ngrok-free.app', // Keycloak server URL
-  realmName: 'Elected',             // Default realm name
-});
-
 const initKeycloak = async () => {
+  const { default: KcAdminClient } = await import('@keycloak/keycloak-admin-client');
+
+  const kcAdminClient = new KcAdminClient({
+    baseUrl: 'http://localhost:8080', // Keycloak server URL
+    realmName: 'Elected',             // Default realm name
+  });
+
   try {
     await kcAdminClient.auth({
       grantType: 'client_credentials',
@@ -20,6 +20,4 @@ const initKeycloak = async () => {
   }
 };
 
-const kcAdminClientPromise = initKeycloak();
-
-export default kcAdminClientPromise;
+module.exports = initKeycloak;

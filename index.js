@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 
 const corsOptions = {
-  origin: ['https://elected.live','http://localhost:3000'],
+  origin: 'https://elected.live',
   optionsSuccessStatus: 200
 };
 
