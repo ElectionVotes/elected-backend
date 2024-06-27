@@ -37,7 +37,7 @@ exports.updateElection = async (req, res) => {
     election.CategoryID = CategoryID;
     election.Title = Title;
     election.Description = Description;
-    election.isActive = isActive || election.isActive;
+    election.isActive = isActive; // Directly assign isActive from request body
     await election.save();
 
     res.status(200).json(election);
@@ -45,6 +45,7 @@ exports.updateElection = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+
 
 exports.deleteElection = async (req, res) => {
   try {
